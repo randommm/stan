@@ -78,6 +78,7 @@
 #include <stan/math/matrix/stan_print.hpp>
 #include <stan/math/matrix/subtract.hpp>
 #include <stan/math/matrix/sum.hpp>
+#include <stan/math/matrix/sum_kahan.hpp>
 #include <stan/math/matrix/tcrossprod.hpp>
 #include <stan/math/matrix/trace.hpp>
 #include <stan/math/matrix/transpose.hpp>
