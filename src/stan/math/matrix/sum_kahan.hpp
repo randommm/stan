@@ -52,30 +52,23 @@ namespace stan {
      * @param xs Specified matrix.
      * @return Kahan summation of coefficients of vector.
     */
-    template <typename T, int R, int C>
+ template <typename T, int R, int C>
     inline T sum_kahan(const Eigen::Matrix<T,R,C>& xs) {
       if (xs.size() == 0) return 0;
-      T sumP(0);
-      T sumN(0);
-      T tP(0);
-      T tN(0);
-      T cP(0);
-      T cN(0);
-      T yP(0);
-      T yN(0);
-      for (size_t i = 0, nRows = xs.rows(), nCols = xs.cols(); i < nRows; ++i)
-	  for (size_t j = 0; j < nCols; ++j)
+      T sumP(0), sumN(0), tP(0), tN(0), cP(0), cN(0), yP(0), yN(0);
+	for (size_t i = 0, size = xs.size(); i < size; i++)
 	  {
-          if (xs(i,j)>0)
+	  T temporary = (*(xs.data() + i));
+          if (temporary>0)
           {
-            yP = xs(i,j) - cP;
+            yP = temporary - cP;
 	      tP = sumP + yP;
 	      cP = (tP - sumP) - yP;
 	      sumP = tP;
           }
-	    else if (xs(i,j)<0)
+	    else if (temporary<0)
           {
-            yN = xs(i,j) - cN;
+            yN = temporary - cN;
 	      tN = sumN + yN;
 	      cN = (tN - sumN) - yN;
 	      sumN = tN;
