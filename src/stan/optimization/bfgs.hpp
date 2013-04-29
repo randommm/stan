@@ -5,6 +5,7 @@
 #include <boost/math/special_functions/fpclassify.hpp>
 #include <cstdlib>
 #include <cmath>
+#include <string>
 
 namespace stan {
   namespace optimization {
@@ -106,7 +107,7 @@ namespace stan {
         while (1) {
           itNum++;
           
-          if (std::abs(alo-ahi) < min_range)
+          if (std::fabs(alo-ahi) < min_range)
             return 1;
           
           if (itNum%5 == 0) {
@@ -126,7 +127,7 @@ namespace stan {
           newX = x + alpha*p;
           while (func(newX,newF,newDF)) {
             alpha = 0.5*(alpha+std::min(alo,ahi));
-            if (std::abs(alo-alpha) < min_range)
+            if (std::fabs(alo-alpha) < min_range)
               return 1;
             newX = x + alpha*p;
           }
@@ -137,7 +138,7 @@ namespace stan {
             ahiDFp = newDFp;
           }
           else {
-            if (std::abs(newDFp) <= -c2dfp)
+            if (std::fabs(newDFp) <= -c2dfp)
               break;
             if (newDFp*(ahi-alo) >= 0) {
               ahi = alo;
@@ -159,7 +160,7 @@ namespace stan {
                           const XType &p,
                           const XType &x0, const Scalar &f0, const XType &gradx0,
                           const Scalar &c1, const Scalar &c2,
-                          const Scalar &minAlpha, const Scalar &maxAlpha)
+                          const Scalar &minAlpha)
       {
         const Scalar dfp(gradx0.dot(p));
         const Scalar c1dfp(c1*dfp);
@@ -193,7 +194,7 @@ namespace stan {
                                  1e-16);
             break;
           }
-          if (std::abs(newDFp) <= -c2dfp) {
+          if (std::fabs(newDFp) <= -c2dfp) {
             alpha = alpha1;
             break;
           }
@@ -213,7 +214,8 @@ namespace stan {
           std::swap(prevDF,gradx1);
           prevDFp = newDFp;
           
-          alpha1 = std::min(2.0*alpha0,maxAlpha);
+//          alpha1 = std::min(2.0*alpha0,maxAlpha);
+          alpha1 *= 10.0;
           
           nits++;
         }
@@ -234,18 +236,23 @@ namespace stan {
         Scalar _fk, _fk_1, _alpha, _alpha0;
         Eigen::LDLT< HessianT > _ldlt;
         size_t _itNum;
+        std::string _note;
         
       public:
         const Scalar &curr_f() const { return _fk; }
         const VectorT &curr_x() const { return _xk; }
         const VectorT &curr_g() const { return _gk; }
+        const VectorT &curr_s() const { return _sk; }
         
         const Scalar &prev_f() const { return _fk_1; }
         const VectorT &prev_x() const { return _xk_1; }
         const VectorT &prev_g() const { return _gk_1; }
+        const VectorT &prev_s() const { return _sk_1; }
 
         const Scalar &init_step_size() const { return _alpha0; }
         const Scalar &step_size() const { return _alpha; }
+        
+        const std::string &note() const { return _note; }
         
         struct BFGSOptions {
           BFGSOptions() {
@@ -256,7 +263,6 @@ namespace stan {
             minStep = 1e-16;
             minGradNorm = 1e-6;
             minAlpha = 1e-12;
-            maxAlpha = 5.0;
             alpha0 = 1e-3;
           }
           size_t maxIts;
@@ -267,7 +273,6 @@ namespace stan {
           Scalar minGradNorm;
           Scalar alpha0;
           Scalar minAlpha;
-          Scalar maxAlpha;
         } _opts;
         
         
@@ -282,6 +287,7 @@ namespace stan {
           }
           
           _itNum = 0;
+          _note = "";
         }
         
         int step() {
@@ -291,11 +297,19 @@ namespace stan {
           int resetB(0);
           
           _itNum++;
-          
-          if (_itNum == 1 || !(_ldlt.info() == Eigen::Success && _ldlt.isPositive() && (_ldlt.vectorD().array() > 0).all()))
+
+          if (_itNum == 1) {
             resetB = 1;
-          else
+            _note = "";
+          }
+          else if (!(_ldlt.info() == Eigen::Success && _ldlt.isPositive() && (_ldlt.vectorD().array() > 0).all())) {
+            resetB = 1;
+            _note = "LDLT failed Hessian reset; ";
+          }
+          else {
             resetB = 0;
+            _note = "";
+          }
           
           while (true) {
             if (resetB) {
@@ -303,7 +317,6 @@ namespace stan {
                 _sk = -_gk;
               }
               else {
-                std::cerr << "BFGS Hessian reset" << std::endl;
                 _sk = -_gk/_ldlt.vectorD().maxCoeff();
               }
             }
@@ -312,11 +325,11 @@ namespace stan {
             }
             
             if (_itNum > 1 && resetB != 2) {
-              _alpha0 = _alpha = std::min(1.0,
-                                          1.01*CubicInterp(_gk_1.dot(_sk_1),
-                                                           _alpha, _fk - _fk_1, _gk.dot(_sk_1),
-                                                           0.0, 1.0));
-//              _alpha0 = _alpha = std::min(1.0, 1.01*(2*(_fk - _fk_1)/_gk_1.dot(_sk_1)));
+//              _alpha0 = _alpha = std::min(1.0,
+//                                          1.01*CubicInterp(_gk_1.dot(_sk_1),
+//                                                           _alpha, _fk - _fk_1, _gk.dot(_sk_1),
+//                                                           0.0, 1.0));
+              _alpha0 = _alpha = std::min(1.0, 1.01*(2*(_fk - _fk_1)/_gk_1.dot(_sk_1)));
             }
             else {
               _alpha0 = _alpha = _opts.alpha0;
@@ -331,7 +344,7 @@ namespace stan {
               retCode = WolfeLineSearch(_func, _alpha, _xk_1, _fk_1, _gk_1,
                                         _sk, _xk, _fk, _gk,
                                         _opts.c1, _opts.c2, 
-                                        _opts.minAlpha, _opts.maxAlpha);
+                                        _opts.minAlpha);
             }
             if (retCode) {
               if (resetB) {
@@ -342,6 +355,7 @@ namespace stan {
               else {
                 // Line-search failed, try ditching the Hessian approximation
                 resetB = 2;
+                _note += "LS failed Hessian reset; ";
                 continue;
               }
             }
@@ -389,7 +403,7 @@ namespace stan {
             // Damped update (Procedure 18.2)
             thetak = 0.8*skBksk/(skBksk - skyk);
             rk = thetak*yk + (1.0 - thetak)*Bksk;
-            std::cerr << "BFGS Damped Hessian update" << std::endl;
+            _note += "Damped Hessian update";
           }
           _ldlt.rankUpdate(rk,1.0/sk.dot(rk));
           _ldlt.rankUpdate(Bksk,-1.0/skBksk);
@@ -430,16 +444,17 @@ namespace stan {
         try {
           f = -_model.log_prob(_x, _params_i, _output_stream);
         } catch (const std::exception& e) {
-          std::cerr << "Error evaluating model log probability:" << std::endl
-                    << e.what() << std::endl;
+          if (_output_stream)
+            (*_output_stream) << e.what() << std::endl;
           return 1;
         }
 
         if (boost::math::isfinite(f))
           return 0;
         else {
-          std::cerr << "Error evaluating model log probability:" << std::endl
-                    << "Non-finite function evaluation." << std::endl;
+          if (_output_stream)
+            *_output_stream << "Error evaluating model log probability: " 
+                               "Non-finite function evaluation." << std::endl;
           return 2;
         }
       }
@@ -453,16 +468,17 @@ namespace stan {
         try {
           f = -_model.grad_log_prob(_x, _params_i, _g, _output_stream);
         } catch (const std::exception& e) {
-          std::cerr << "Error evaluating model log probability:" << std::endl
-                    << e.what() << std::endl;
+          if (_output_stream)
+            (*_output_stream) << e.what() << std::endl;
           return 1;
         }
 
         g.resize(_g.size());
         for (size_t i = 0; i < _g.size(); i++) {
           if (!boost::math::isfinite(_g[i])) {
-            std::cerr << "Error evaluating model log probability:" << std::endl
-                      << "Non-finite gradient." << std::endl;
+            if (_output_stream)
+              *_output_stream << "Error evaluating model log probability: " 
+                                 "Non-finite gradient." << std::endl;
             return 3;
           }
           g[i] = -_g[i];
@@ -471,8 +487,9 @@ namespace stan {
         if (boost::math::isfinite(f))
           return 0;
         else {
-          std::cerr << "Error evaluating model log probability:" << std::endl
-                    << "Non-finite function evaluation." << std::endl;
+          if (_output_stream)
+            *_output_stream << "Error evaluating model log probability: " 
+                               "Non-finite function evaluation." << std::endl;
           return 2;
         }
       }
@@ -504,6 +521,7 @@ namespace stan {
 
       size_t grad_evals() { return _adaptor.fevals(); }
       double logp() { return -curr_f(); }
+      double grad_norm() { return curr_g().norm(); }
       void grad(std::vector<double>& g) { 
         const BFGSMinimizer<ModelAdaptor>::VectorT &cg(curr_g());
         g.resize(cg.size());

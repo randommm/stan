@@ -737,13 +737,23 @@ namespace stan {
           lastlp = lp;
           lp = ng.logp();
           ng.params_r(cont_params);
+          if (do_print(i, 100*refresh)) {
+            std::cout << "    Iter ";
+            std::cout << "     log prob ";
+            std::cout << "     ||grad|| ";
+            std::cout << "      alpha ";
+            std::cout << "     alpha0 ";
+            std::cout << " # evals ";
+            std::cout << " Notes " << std::endl;
+          }
           if (do_print(i, refresh)) {
-            std::cout << "Iteration ";
-            std::cout << std::setw(3) << (m + 1) << ". ";
-            std::cout << "Log joint probability = " << std::setw(10) << lp;
-            std::cout << ". Improved by " << (lp - lastlp) << ". ";
-            std::cout << "Step size " << ng.step_size() << " (initial " << ng.init_step_size() << ").";
-            std::cout << " # grad evals = " << ng.grad_evals();
+            std::cout << " " << std::setw(7) << (m + 1) << " ";
+            std::cout << " " << std::setw(12) << std::setprecision(6) << lp << " ";
+            std::cout << " " << std::setw(12) << std::setprecision(6) << ng.curr_g().norm() << " ";
+            std::cout << " " << std::setw(10) << std::setprecision(4) << ng.step_size() << " ";
+            std::cout << " " << std::setw(10) << std::setprecision(4) << ng.init_step_size() << " ";
+            std::cout << " " << std::setw(7) << ng.grad_evals() << " ";
+            std::cout << " " << ng.note() << " ";
             std::cout << std::endl;
             std::cout.flush();
           }
