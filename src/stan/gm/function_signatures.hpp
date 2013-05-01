@@ -556,6 +556,16 @@ add("sum_kahan",DOUBLE_T,expr_type(DOUBLE_T,1));
 add("sum_kahan",DOUBLE_T,VECTOR_T);
 add("sum_kahan",DOUBLE_T,ROW_VECTOR_T);
 add("sum_kahan",DOUBLE_T,MATRIX_T);
+add("sum_ogita",INT_T,expr_type(INT_T,1));
+add("sum_ogita",DOUBLE_T,expr_type(DOUBLE_T,1));
+add("sum_ogita",DOUBLE_T,VECTOR_T);
+add("sum_ogita",DOUBLE_T,ROW_VECTOR_T);
+add("sum_ogita",DOUBLE_T,MATRIX_T);
+add("sum_pairwise",INT_T,expr_type(INT_T,1));
+add("sum_pairwise",DOUBLE_T,expr_type(DOUBLE_T,1));
+add("sum_pairwise",DOUBLE_T,VECTOR_T);
+add("sum_pairwise",DOUBLE_T,ROW_VECTOR_T);
+add("sum_pairwise",DOUBLE_T,MATRIX_T);
 // see head() and segment()
 add("tail",ROW_VECTOR_T, ROW_VECTOR_T,INT_T);
 add("tail",VECTOR_T, VECTOR_T,INT_T);
