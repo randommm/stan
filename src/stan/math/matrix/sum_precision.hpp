@@ -70,15 +70,19 @@ namespace stan {
     inline T sum_ogita(const std::vector<T>& xs)
     {
       if (xs.size() == 0) return 0;
-      T sum(0), x(0), z(0), inter;
-      for (size_t i = 0, size = xs.size(); i < size; ++i)
+	T pi0, pi1(xs[0]), p, z, q, sigma(0);
+	for (size_t i = 1, size = xs.size(); i < size; i++)
 	{
-          inter = xs[i];
-	    x = sum + inter;
-          z = x - inter;
-	    sum = x + ( (sum-(x-z)) + (inter-z) );
+          p = xs[i];	    
+	    pi0 = pi1;
+
+    	    pi1 = pi0 + p;
+          z = pi1 - pi0;
+	    q = (pi0-(pi1-z)) + (p-z);
+	    
+	    sigma = sigma + q;
 	}
-      return sum;
+      return sigma + pi1;
     }
 
 
@@ -92,16 +96,24 @@ namespace stan {
     inline T sum_ogita(Eigen::Matrix<T,R,C>& xs)
     {
       if (xs.size() == 0) return 0;
-      T sum(0), x(0), z(0), inter;
 	const T * xsBegin = xs.data();
-	for (size_t i = 0, size = xs.size(); i < size; i++)
+	T pi0, pi1(*xsBegin), p, z, q, sigma(0);
+	for (size_t i = 1, size = xs.size(); i < size; i++)
 	{
-          inter = xsBegin[i];
-	    x = sum + inter;
-          z = x - inter;
-	    sum = x + ( (sum-(x-z)) + (inter-z) );
+          p = xsBegin[i];    
+	    pi0 = pi1;
+	    
+	    //in the following 3 lines we apply algorithm 3.1 with a=pi0; b=p; x=pi1 and y=q
+	    //x = a + b;
+	    //z = x - a;
+	    //y = (a - (x - z)) + (b-z);
+    	    pi1 = pi0 + p;
+          z = pi1 - pi0;
+	    q = (pi0-(pi1-z)) + (p-z);
+	    
+	    sigma = sigma + q;
 	}
-      return sum;
+      return sigma + pi1;
     }
  
 
