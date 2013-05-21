@@ -2,7 +2,7 @@
 #include <stan/agrad/fvar.hpp>
 #include <stan/math/functions/log1p_exp.hpp>
 
-TEST(AgradFvar, log1p_exp){
+TEST(AgradFvar, log1p_exp) {
   using stan::agrad::fvar;
   using stan::math::log1p_exp;
   using std::exp;
@@ -21,4 +21,10 @@ TEST(AgradFvar, log1p_exp){
   fvar<double> b = log1p_exp(y);
   EXPECT_FLOAT_EQ(log1p_exp(1.0), b.val_);
   EXPECT_FLOAT_EQ(2.0 * exp(1.0) / (1 + exp(1.0)), b.d_);
+
+  fvar<double> a2 = log(1+exp(x));
+  EXPECT_FLOAT_EQ(a.d_, a2.d_);
+
+  fvar<double> b2 = log(1+exp(y));
+  EXPECT_FLOAT_EQ(b.d_, b2.d_);
 }
