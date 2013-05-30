@@ -468,7 +468,7 @@ data {
    real y[N];
 }
 parameters {
-   real<lower=fmin(y),upper=fmax(y)> phi;
+   real<lower=min(y),upper=max(y)> phi;
 }
 \end{Verbatim}
 \end{quote}
@@ -476,7 +476,7 @@ parameters {
 This declares a positive integer data variable \code{N}, an array
 \code{y} of real-valued data of length \code{N}, and then a parameter
 ranging between the minimum and maximum value of \code{y}.  The
-functions \code{fmin()} and \code{fmax()} are minimum and maximum
+functions \code{min()} and \code{max()} are minimum and maximum
 functions for floating point quantities.
 
 
