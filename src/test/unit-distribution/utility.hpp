@@ -3,12 +3,16 @@
 
 #include <vector>
 #include <stan/agrad/rev/matrix.hpp>
+#include <stdexcept>
 
 using std::vector;
+using Eigen::Matrix;
+using Eigen::Dynamic;
 using stan::agrad::var;
 using stan::is_vector;
 using stan::is_constant_struct;
 using stan::scalar_type;
+using stan::scalar_type_pre;
 
 typedef Eigen::Matrix<double,1,1>::size_type size_type;
 
@@ -24,6 +28,22 @@ struct is_empty {
 template <>
 struct is_empty<empty> {
   enum { value = true };
+};
+
+template <bool is_vec, typename T>
+struct scalar_type_multi_helper {
+  typedef typename scalar_type_pre<T>::type type;
+};
+    
+template <typename T> 
+struct scalar_type_multi_helper<true, T> {
+  typedef T type;
+};
+
+//same as scalar_type_pre, except that it checks if it's empty
+template <typename T> 
+struct scalar_type_multi {
+  typedef typename scalar_type_multi_helper<is_empty<T>::value, T>::type type;
 };
 
 //------------------------------------------------------------
@@ -52,7 +72,6 @@ namespace std {
   }
 
 }
-
 
 //------------------------------------------------------------
 // default template handles Eigen::Matrix
@@ -121,13 +140,41 @@ vector<var> get_params<vector<var> >(const vector<vector<double> >& parameters, 
 
 //------------------------------------------------------------
 
-// default template handles Eigen::Matrix
+// default template handles Eigen vectors and row vectors
 template <typename T>
 T get_params(const vector<vector<double> >& parameters, const size_t /*n*/, const size_t p) {
   T param(parameters.size());
   for (size_t i = 0; i < parameters.size(); i++)
     if (p < parameters[0].size())
       param(i) = parameters[i][p];
+  return param;
+}
+
+// handle Eigen square matrices of double
+template <> typename Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> 
+  get_params<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> >
+  (const vector<vector<double> >& parameters, const size_t /*n*/, const size_t p) {
+  size_t size = parameters.size();
+  size_t side = std::sqrt(size);
+  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> param(side, side);
+  for (size_t i = 0; i < side; i++)
+    for (size_t j = 0; j < side; j++)
+      if (p < parameters[0].size())
+        param(i, j) = parameters[i*side + j][p];
+  return param;
+}
+
+// handle Eigen square matrices of var
+template <> typename Eigen::Matrix<var, Eigen::Dynamic, Eigen::Dynamic> 
+  get_params<Eigen::Matrix<var, Eigen::Dynamic, Eigen::Dynamic> >
+  (const vector<vector<double> >& parameters, const size_t /*n*/, const size_t p) {
+  size_t size = parameters.size();
+  size_t side = std::sqrt(size);
+  Eigen::Matrix<var, Eigen::Dynamic, Eigen::Dynamic> param(side, side);
+  for (size_t i = 0; i < side; i++)
+    for (size_t j = 0; j < side; j++)
+      if (p < parameters[0].size())
+        param(i, j) = parameters[i*side + j][p];
   return param;
 }
 
@@ -422,6 +469,93 @@ void add_vars(vector<var>& x, T0& p0, T1& p1, T2& p2,
     add_var(x, p9);
 }
 
+//------------------------------------------------------------
+// Multivariate versions
+
+
+// default template should not be called
+template <typename T> struct get_params_multi {
+  static T f(const vector<vector<vector<double> > >& parameters,
+             const size_t p, const size_t n=0) {
+    throw std::domain_error("Error: get_params_multi should be specialized.");
+    T param;
+    return param;
+  }
+};
+
+// handles Eigen vectors and row vectors
+template <typename T, int R, int C> struct get_params_multi <Matrix<T, R, C> > {
+  static Matrix<T, R, C> f(const vector<vector<vector<double> > >& parameters,
+             const size_t p, const size_t n=0) {
+    size_t size0(parameters.size()), size1(0), size2(0);
+    if(size0 != 0)
+      size1 = parameters[0].size();
+    if(p < size1)
+      size2 = parameters[0][p].size();
+    Matrix<T, R, C> param(size2);
+    for (size_t i = 0; i < size2; i++)
+      param(i) = parameters[n][p][i];
+    return param;
+  }
+};
+
+// handle Eigen square matrices
+template <typename T> struct get_params_multi <Matrix<T, Dynamic, Dynamic> > {
+  static Matrix<T, Dynamic, Dynamic> f(const vector<vector<vector<double> > >& parameters, const size_t p, const size_t n=0) {
+    size_t size0(parameters.size()), size1(0), size2(0);
+    if(size0 != 0)
+      size1 = parameters[0].size();
+    if(p < size1)
+      size2 = parameters[0][p].size();
+    size_t side = std::sqrt(size2);
+    Matrix<T, Dynamic, Dynamic> param(side, side);
+    for (size_t i = 0; i < side; i++)
+      for (size_t j = 0; j < side; j++)
+        param(i, j) = parameters[n][p][i*side + j];
+    return param;
+  }
+};
+
+// handle std::vector of Eigen vectors and row vectors
+template <typename T, int R, int C> struct get_params_multi <vector <Matrix<T, R, C> > > {
+  static vector <Matrix<T, R, C> > f(const vector<vector<vector<double> > >& parameters, const size_t p, const size_t n=0) {
+    size_t size0(parameters.size()), size1(0), size2(0);
+    if(size0 != 0)
+      size1 = parameters[0].size();
+    if(p < size1)
+      size2 = parameters[0][p].size();
+    vector< Matrix<T, R, C> > param(size0, Matrix<T, R, C>(size2));
+    for(size_t k = 0; k < size0; k++)
+      for (size_t i = 0; i < size2; i++)
+        param[k](i) = parameters[k][p][i];
+    return param;
+  }
+};
+
+// handle std::vector of Eigen square matrices
+template <typename T> struct get_params_multi <vector <Matrix<T, Dynamic, Dynamic> > > {
+  static vector <Matrix<T, Dynamic, Dynamic> > f(const vector<vector<vector<double> > >& parameters, const size_t p, const size_t n=0) {
+    size_t size0(parameters.size()), size1(0), size2(0);
+    if(size0 != 0)
+      size1 = parameters[0].size();
+    if(p < size1)
+      size2 = parameters[0][p].size();
+    size_t side = std::sqrt(size2);
+    vector< Matrix<T, Dynamic, Dynamic> > param(size0, Matrix<T, Dynamic, Dynamic>(side, side));
+    for(size_t k = 0; k < size0; k++)
+      for (size_t i = 0; i < side; i++)
+        for (size_t j = 0; j < side; j++)
+          param[k](i, j) = parameters[k][p][i*side + j];
+    return param;
+  }
+};
+
+// handle empty
+template <> struct get_params_multi <empty> {
+  static empty f(const vector<vector<vector<double> > >& , const size_t, const size_t n=0) {
+    return empty();
+  }
+};
 
 //------------------------------------------------------------
 

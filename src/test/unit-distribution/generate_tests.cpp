@@ -39,6 +39,19 @@ vector<string> lookup_argument(const string& argument) {
     args.push_back("Eigen::Matrix<var, Eigen::Dynamic, 1>");
     args.push_back("Eigen::Matrix<var, 1, Eigen::Dynamic>");
   }
+  //vectorized vectors: arrays of Eigen vectors/row_vectors
+  else if (iequals(argument, "vvectors")) {
+    args.push_back("Eigen::Matrix<double, Eigen::Dynamic, 1>");
+    args.push_back("std::vector<Eigen::Matrix<double, Eigen::Dynamic, 1> >");
+    args.push_back("Eigen::Matrix<var, Eigen::Dynamic, 1>");
+    args.push_back("std::vector<Eigen::Matrix<var, Eigen::Dynamic, 1> >");
+    args.push_back("Eigen::Matrix<double, 1, Eigen::Dynamic>");
+    args.push_back("std::vector<Eigen::Matrix<double, 1, Eigen::Dynamic> >");
+    args.push_back("Eigen::Matrix<var, 1, Eigen::Dynamic>");
+    args.push_back("std::vector<Eigen::Matrix<var, 1, Eigen::Dynamic> >");
+  } else if (iequals(argument, "matrices")) {
+    args.push_back("Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>");
+    args.push_back("Eigen::Matrix<var, Eigen::Dynamic, Eigen::Dynamic>");  }
   return args;
 }
 
